@@ -1,112 +1,37 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useState } from 'react';
-import { setProducts } from '../Slice/productSlice';
+import { setProducts, setLoading, setError } from '../Slice/productSlice';
+import { toggleTheme } from '../Slice/themeSlice';
 import {
   ConfigProvider,
   theme,
   Switch,
   FloatButton,
-  Drawer,
-  Col,
   Row,
-  Card,
-  Button,
-  List,
   Typography,
-  Space
+  Spin,
+  Alert
 } from 'antd';
 import { ShoppingCartOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
 import { useCart } from '../Slice/useCart';
 import './App.css';
+import ProductCard from './components/ProductCart';
+import CartDrawer from './components/CartDrawer';
+import Searcher from './components/searcher';
+import { productService } from './services/productService';
 
 const { Title } = Typography;
-
-/**
- * Componente para mostrar un producto individual en una tarjeta.
- */
-const ProductCard = ({ prod, addToCart }) => (
-  <Col key={prod.id} xs={24} sm={12} md={8} lg={6}>
-    <Card
-      hoverable
-      cover={
-        <div style={{
-          height: 200,
-          background: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '8px 8px 0 0'
-        }}>
-          <img
-            alt={prod.title}
-            src={prod.image}
-            style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 15 }}
-          />
-        </div>
-      }
-      actions={[
-        <Button type="primary" onClick={() => addToCart(prod)}>
-          Agregar al carrito
-        </Button>
-      ]}
-    >
-      <Card.Meta
-        title={<div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod.title}</div>}
-        description={`$${prod.price}`}
-      />
-    </Card>
-  </Col>
-);
-
-/**
- * Componente para el cajón lateral del carrito de compras.
- */
-const CartDrawer = ({ open, onClose, cart, total, increaseQuantity, decreaseQuantity, removeFromCart }) => (
-  <Drawer title="Tu Carrito" open={open} onClose={onClose} width={400}>
-    <List
-      dataSource={cart}
-      renderItem={(item) => (
-        <List.Item>
-          <List.Item.Meta
-            title={item.title}
-            description={
-              <div>
-                <p>${item.price} x {item.quantity}</p>
-                <Space.Compact>
-                  <Button onClick={() => decreaseQuantity(item.id)}>-</Button>
-                  <Button disabled>{item.quantity}</Button>
-                  <Button onClick={() => increaseQuantity(item.id)}>+</Button>
-                </Space.Compact>
-              </div>
-            }
-            avatar={
-              <img
-                alt={item.title}
-                src={item.image}
-                style={{ height: 50, width: 50, objectFit: 'contain' }}
-              />
-            }
-          />
-          <Button type="primary" danger onClick={() => removeFromCart(item.id)}>
-            Eliminar
-          </Button>
-        </List.Item>
-      )}
-      footer={
-        <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '18px', marginTop: 20 }}>
-          Total a pagar: ${total.toFixed(2)}
-        </div>
-      }
-    />
-  </Drawer>
-);
 
 function App() {
   // --- Hooks y Estado ---
   const dispatch = useDispatch();
-  const [open, setOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const { darkAlgorithm, defaultAlgorithm } = theme;
+
+  // Selectores de Redux
+  const isDarkMode = useSelector((state) => state.theme.darkMode);
+  const { products, loading, error } = useSelector((state) => state.product);
 
   // Custom hook para la lógica del carrito
   const {
@@ -118,15 +43,26 @@ function App() {
     decreaseQuantity
   } = useCart();
 
-  // Selector para obtener productos de Redux
-  const products = useSelector((state) => state.product.products);
+  // --- Lógica de Filtrado ---
+  const filteredProducts = products.filter((prod) =>
+    prod.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // --- Efectos ---
   useEffect(() => {
-    // Carga inicial de productos desde la API
-    fetch('https://fakestoreapi.com/products')
-      .then(res => res.json())
-      .then(data => dispatch(setProducts(data)));
+    const fetchProducts = async () => {
+      dispatch(setLoading(true));
+      try {
+        const data = await productService.getAllProducts();
+        dispatch(setProducts(data));
+      } catch (err) {
+        dispatch(setError("No se pudieron cargar los productos. Inténtalo más tarde."));
+      } finally {
+        dispatch(setLoading(false));
+      }
+    };
+
+    fetchProducts();
   }, [dispatch]);
 
   // --- Renderizado ---
@@ -139,44 +75,71 @@ function App() {
         transition: 'all 0.3s ease'
       }}>
 
-        {/* Cabecera y Selector de Tema */}
-        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-          <Title level={2} style={{ margin: 0, color: 'inherit' }}>
-            Libre Mercado <ShoppingCartOutlined />
-          </Title>
+        {/* Contenedor Principal */}
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          width: '100%',
+          padding: '0 20px'
+        }}>
 
-          <div style={{ marginTop: 20 }}>
-            <Switch
-              checked={isDarkMode}
-              onChange={(checked) => setIsDarkMode(checked)}
-              checkedChildren={<MoonOutlined />}
-              unCheckedChildren={<SunOutlined />}
-            />
-            <span style={{ marginLeft: 10 }}>Modo {isDarkMode ? 'Oscuro' : 'Claro'}</span>
+          {/* Cabecera y Selector de Tema */}
+          <div style={{ padding: '40px 0', textAlign: 'center' }}>
+            <Title level={2} style={{ margin: 0, color: 'inherit', marginBottom: 20 }}>
+              Libre Mercado <ShoppingCartOutlined />
+            </Title>
+
+            {/* Componente Buscador */}
+            <Searcher onSearch={setSearchTerm} />
+
+            <div style={{ marginTop: 20 }}>
+              <Switch
+                checked={isDarkMode}
+                onChange={() => dispatch(toggleTheme())}
+                checkedChildren={<MoonOutlined />}
+                unCheckedChildren={<SunOutlined />}
+              />
+              <span style={{ marginLeft: 10 }}>Modo {isDarkMode ? 'Oscuro' : 'Claro'}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Rejilla de Productos */}
-        <div style={{ padding: '0 50px 50px 50px' }}>
-          <Row gutter={[24, 24]} justify="center">
-            {products.map((prod) => (
-              <ProductCard key={prod.id} prod={prod} addToCart={addToCart} />
-            ))}
-          </Row>
-        </div>
+          {/* Rejilla de Productos con Estados de Carga y Error */}
+          <div style={{ paddingBottom: '50px', minHeight: '60vh' }}>
+            {error && (
+              <Alert
+                message="Error"
+                description={error}
+                type="error"
+                showIcon
+                style={{ marginBottom: 20, maxWidth: 600, margin: '0 auto 20px auto' }}
+              />
+            )}
+
+            <Spin spinning={loading} size="large" description="Cargando productos...">
+              <div style={{ minHeight: loading ? '400px' : 'auto' }}>
+                <Row gutter={[20, 20]} justify="start">
+                  {filteredProducts.map((prod) => (
+                    <ProductCard key={prod.id} prod={prod} addToCart={addToCart} />
+                  ))}
+                </Row>
+              </div>
+            </Spin>
+          </div>
+
+        </div> {/* Cierra Contenedor Principal */}
 
         {/* Botón Flotante del Carrito */}
         <FloatButton
           icon={<ShoppingCartOutlined />}
-          onClick={() => setOpen(true)}
+          onClick={() => setIsDrawerOpen(true)}
           badge={{ count: cart.reduce((acc, item) => acc + item.quantity, 0) }}
           tooltip={<div>Ver carrito</div>}
         />
 
         {/* Drawer del Carrito */}
         <CartDrawer
-          open={open}
-          onClose={() => setOpen(false)}
+          open={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
           cart={cart}
           total={total}
           increaseQuantity={increaseQuantity}

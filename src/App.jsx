@@ -10,6 +10,7 @@ import {
   Row,
   Typography,
   Spin,
+  Select,
   Alert
 } from 'antd';
 import { ShoppingCartOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
@@ -19,6 +20,7 @@ import ProductCard from './components/ProductCart';
 import CartDrawer from './components/CartDrawer';
 import Searcher from './components/searcher';
 import { productService } from './services/productService';
+import { useProductFilter } from '../Slice/FilterProduct';
 
 const { Title } = Typography;
 
@@ -27,7 +29,9 @@ function App() {
   const dispatch = useDispatch();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [categories, setCategories] = useState([]);
   const { darkAlgorithm, defaultAlgorithm } = theme;
+  const { filterByCategory } = useProductFilter();
 
   // Selectores de Redux
   const isDarkMode = useSelector((state) => state.theme.darkMode);
@@ -53,10 +57,15 @@ function App() {
     const fetchProducts = async () => {
       dispatch(setLoading(true));
       try {
+
         const data = await productService.getAllProducts();
         dispatch(setProducts(data));
+
+        const categoriesData = await productService.getCategories();
+        setCategories(categoriesData);
+
       } catch (err) {
-        dispatch(setError("No se pudieron cargar los productos. Inténtalo más tarde."));
+        dispatch(setError("Error al cargar datos."));
       } finally {
         dispatch(setLoading(false));
       }
@@ -83,23 +92,42 @@ function App() {
           padding: '0 20px'
         }}>
 
-          {/* Cabecera y Selector de Tema */}
-          <div style={{ padding: '40px 0', textAlign: 'center' }}>
-            <Title level={2} style={{ margin: 0, color: 'inherit', marginBottom: 20 }}>
-              Libre Mercado <ShoppingCartOutlined />
+          {/* Cabecera / Navbar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '20px 0',
+            borderBottom: `1px solid ${isDarkMode ? '#303030' : '#e8e8e8'}`,
+            marginBottom: '30px',
+            flexWrap: 'wrap',
+            gap: '15px'
+          }}>
+            <Title level={2} style={{ margin: 0, color: 'inherit', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <ShoppingCartOutlined /> Libre Mercado
             </Title>
 
-            {/* Componente Buscador */}
-            <Searcher onSearch={setSearchTerm} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexGrow: 1, justifyContent: 'flex-end' }}>
+              {/* Componente Buscador */}
+              <Searcher onSearch={setSearchTerm} />
 
-            <div style={{ marginTop: 20 }}>
-              <Switch
-                checked={isDarkMode}
-                onChange={() => dispatch(toggleTheme())}
-                checkedChildren={<MoonOutlined />}
-                unCheckedChildren={<SunOutlined />}
+              <Select
+                placeholder="Categorías"
+                style={{ width: 150 }}
+                onChange={filterByCategory}
+                options={categories.map(cat => ({ value: cat, label: cat }))}
               />
-              <span style={{ marginLeft: 10 }}>Modo {isDarkMode ? 'Oscuro' : 'Claro'}</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Switch
+                  size="small"
+                  checked={isDarkMode}
+                  onChange={() => dispatch(toggleTheme())}
+                  checkedChildren={<MoonOutlined />}
+                  unCheckedChildren={<SunOutlined />}
+                />
+                <span style={{ fontSize: '12px', opacity: 0.7 }}>{isDarkMode ? 'Oscuro' : 'Claro'}</span>
+              </div>
             </div>
           </div>
 
@@ -126,7 +154,8 @@ function App() {
             </Spin>
           </div>
 
-        </div> {/* Cierra Contenedor Principal */}
+        </div>
+        {/* Cierra Contenedor Principal */}
 
         {/* Botón Flotante del Carrito */}
         <FloatButton

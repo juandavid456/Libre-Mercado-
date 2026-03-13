@@ -18,7 +18,7 @@ const ProductCard = ({ prod, addToCart }) => (
                 }}>
                     <img
                         alt={prod.title}
-                        src={prod.image}
+                        src={prod.thumbnail}
                         style={{ height: '100%', width: '100%', objectFit: 'contain', padding: 15 }}
                     />
                 </div>

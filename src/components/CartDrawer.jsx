@@ -24,7 +24,7 @@ const CartDrawer = ({ open, onClose, cart, total, increaseQuantity, decreaseQuan
                         avatar={
                             <img
                                 alt={item.title}
-                                src={item.image}
+                                src={item.thumbnail}
                                 style={{ height: 50, width: 50, objectFit: 'contain' }}
                             />
                         }
